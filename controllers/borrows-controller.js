@@ -19,7 +19,7 @@ exports.getBorrowById = async (req, res, next) => {
     const borrow = await db.borrow.findUnique({
       where: { id: +borrowingId },
       include: {
-        book: true,   
+        book: true,
         member: true,
       },
     });
@@ -33,16 +33,30 @@ exports.getBorrowById = async (req, res, next) => {
 };
 
 exports.borrowBook = async (req, res, next) => {
-
-  
   try {
-    const { memberId, bookId } = req.body;
-    const bookIdNumber = parseInt(bookId, 10);   
+    const { memberId } = req.body;
+
+    // ตรวจสอบจำนวนรายการที่สมาชิกมีการยืมอยู่
+    const borrowCount = await db.borrow.count({
+      where: {
+        memberId: +memberId,
+        status: 'ยืม',
+      },
+    });
+
+    // ถ้ามีการยืมเกิน 2 รายการให้ไม่ยืมได้
+    if (borrowCount >= 2) {
+      return res.status(400).json({ msg: 'สมาชิกมีการยืมเกิน 2 รายการ' });
+    }
+
+    // ถ้ายืมไม่เกิน 2 รายการให้ทำการยืมปกติ
+    const { bookId } = req.body;
+    const bookIdNumber = parseInt(bookId, 10);
 
     const borrowRecord = await db.borrow.create({
       data: {
         member: { connect: { id: +memberId } },
-        book: { connect: { id: bookIdNumber } },   
+        book: { connect: { id: bookIdNumber } },
         status: 'ยืม',
         borrowDate: new Date().toISOString(),
       },
@@ -53,6 +67,7 @@ exports.borrowBook = async (req, res, next) => {
     next(err);
   }
 };
+
 
 exports.returnBook = async (req, res, next) => {
   try {
@@ -122,3 +137,5 @@ exports.deleteBorrow = async (req, res, next) => {
     next(err);
   }
 };
+
+
